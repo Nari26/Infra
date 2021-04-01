@@ -1,0 +1,71 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: AWS Infrastructure Template - Creates Launch Template and Autoscaling group
+Parameters:
+  Subnets:
+    Description: VPC subnet ids
+    Type: List<AWS::EC2::Subnet::Id> 
+
+Resources: 
+  Role:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: '*'
+                Resource: '*'
+  InstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      Path: /
+      Roles:
+        - !Ref Role
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable SSH/HTTP access 
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 173.95.172.65/32
+      - IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+        CidrIp: 173.95.172.65/32
+  LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: MyLaunchTemplate
+      LaunchTemplateData:
+        IamInstanceProfile: 
+          Name: !Ref InstanceProfile
+        ImageId: ami-0742b4e673072066f
+        InstanceType: t3.medium
+        KeyName: nt-dev-kp
+        SecurityGroupIds:
+          - !GetAtt SecurityGroup.GroupId
+  ASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: myASG
+      MinSize: '0'
+      MaxSize: '5'
+      DesiredCapacity: '2'
+      LaunchTemplate:
+        LaunchTemplateId: !Ref LaunchTemplate
+        Version: '1'
+      VPCZoneIdentifier: !Ref Subnets
